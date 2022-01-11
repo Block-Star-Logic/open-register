@@ -1,21 +1,26 @@
-//"SPDX-License-Identifier: APACHE 2.0"
+//SPDX-License-Identifier: Apache-2.0
 
 pragma solidity >=0.8.0 <0.9.0;
 
-import "./IOpenRegister.sol";
-import "./IOpenVersion.sol";
+import "https://github.com/Block-Star-Logic/open-version/tree/main/blockchain_ethereum/solidity/V1/interfaces/IOpenVersion.sol";
 
-import "./LOpenUtilities.sol";
-
-import "./IAddressChangeListener.sol";
+import "https://github.com/Block-Star-Logic/open-libraries/tree/main/blockchain_ethereum/solidity/V1/libraries/LOpenUtilities.sol";
 
 import "https://github.com/Block-Star-Logic/open-roles/blob/main/blockchain_ethereum/solidity/v2/contracts/interfaces/IOpenRoles.sol";
 
+import "https://github.com/Block-Star-Logic/open-register/tree/main/blockchain_ethereum/solidity/V1/interfaces/IAddressChangeListener.sol";
+
+import "https://github.com/Block-Star-Logic/open-register/tree/main/blockchain_ethereum/solidity/V1/interfaces/IOpenRegister.sol";
+/**
+ * @title
+ * @author
+ * @dev
+ */
 contract OpenRegister is IOpenRegister, IOpenVersion {
 
     using LOpenUtilities for uint256;
 
-    uint256 version = 4; 
+    uint256 version = 5; 
 
     string name; 
     
