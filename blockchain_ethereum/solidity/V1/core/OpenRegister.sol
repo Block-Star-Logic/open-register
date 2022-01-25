@@ -2,25 +2,26 @@
 
 pragma solidity >=0.8.0 <0.9.0;
 
-import "https://github.com/Block-Star-Logic/open-version/tree/main/blockchain_ethereum/solidity/V1/interfaces/IOpenVersion.sol";
+import "https://github.com/Block-Star-Logic/open-version/blob/3211dff2ed53298e2777f26d58f54dd96551cfea/blockchain_ethereum/solidity/V1/interfaces/IOpenVersion.sol";
 
-import "https://github.com/Block-Star-Logic/open-libraries/tree/main/blockchain_ethereum/solidity/V1/libraries/LOpenUtilities.sol";
+import "https://github.com/Block-Star-Logic/open-libraries/blob/7c34b2d947acdef28273cd789c2fe830913600d6/blockchain_ethereum/solidity/V1/libraries/LOpenUtilities.sol";
 
-import "https://github.com/Block-Star-Logic/open-roles/blob/main/blockchain_ethereum/solidity/v2/contracts/interfaces/IOpenRoles.sol";
+import "https://github.com/Block-Star-Logic/open-roles/blob/ed19a6420371f5270db47ca10fca1e430acf3f19/blockchain_ethereum/solidity/v2/contracts/interfaces/IOpenRoles.sol";
 
-import "https://github.com/Block-Star-Logic/open-register/tree/main/blockchain_ethereum/solidity/V1/interfaces/IAddressChangeListener.sol";
+import "https://github.com/Block-Star-Logic/open-register/blob/49dc829a25d632c9933a3e6b4fbc7cdda28bd022/blockchain_ethereum/solidity/V1/interfaces/IAddressChangeListener.sol";
 
-import "https://github.com/Block-Star-Logic/open-register/tree/main/blockchain_ethereum/solidity/V1/interfaces/IOpenRegister.sol";
+import "../interfaces/IOpenRegister.sol";
 /**
- * @title
- * @author
- * @dev
+ * @title Open Register
+ * @author Block Star Logic 
+ * @dev The Open Register is responsible for keeping track of all addresses operating in a given dApp estate. 
  */
 contract OpenRegister is IOpenRegister, IOpenVersion {
 
     using LOpenUtilities for uint256;
+    using LOpenUtilities for string; 
 
-    uint256 version = 5; 
+    uint256 version = 8; 
 
     string name; 
     
@@ -28,6 +29,8 @@ contract OpenRegister is IOpenRegister, IOpenVersion {
 
     IOpenRoles roleManager; 
     bool openRolesConfigured; 
+
+    string [] configuredNames; 
 
     mapping(string=>address) addressByName; 
     mapping(address=>bool) knownAddressStatusByAddress; 
@@ -37,6 +40,12 @@ contract OpenRegister is IOpenRegister, IOpenVersion {
     mapping(string=>IAddressChangeListener[]) addressChangeListenerList; 
     mapping(string=>mapping(address=>bool)) isOnNotificationList;
     mapping(string=>mapping(address=>uint256)) notificationListIndex; 
+
+    mapping(address=>bool) knownDerivativeAddressByAddress;
+
+    mapping(address=>string) dAppByDerivativeAddress; 
+    mapping(string=>address[]) derivativeAddressesByDApp; 
+    mapping(string=>mapping(address=>bool)) knownDerivativeAddressByDApp; 
 
     struct PassUsageStatistic { 
          string pass;
@@ -49,6 +58,7 @@ contract OpenRegister is IOpenRegister, IOpenVersion {
 
     constructor(string memory _name, address _rootAdmin) { 
         rootAdmin = _rootAdmin;
+        knownAddressStatusByAddress[rootAdmin] = true;
         name = _name;  
     }
 
@@ -64,21 +74,26 @@ contract OpenRegister is IOpenRegister, IOpenVersion {
         return knownAddressStatusByAddress[_address];
     }
 
-    function registerKnownAddress(address _address) override external returns (bool _registered){
-        doSecurity(msg.sender, "registerKnownAddress");
-        knownAddressStatusByAddress[_address] = true; 
+    function isDerivativeAddress(address _address) override view external returns (bool _isDerivative){
+        return knownDerivativeAddressByAddress[_address];
+    }
 
-        return true; 
+    function getDAppForDerivativeAddress(address _address) override view external returns (string memory _dApp){
+        return dAppByDerivativeAddress[_address];
+    }
+
+    function getAddress(string memory _addressName)  override view external returns (address _address){
+        return addressByName[_addressName];
+    }
+
+    function registerKnownAddress(address _address) override external returns (bool _registered){
+        return registerKnownAddressInternal(_address);
     }
 
     function deregisterKnownAddress(address _address)  override external returns (bool _deregistered){
         doSecurity(msg.sender, "deregisterKnownAddress");
         knownAddressStatusByAddress[_address] = false; 
         return true; 
-    }
-
-    function getAddress(string memory _addressName)  override view external returns (address _address){
-        return addressByName[_addressName];
     }
 
     function addAddresses(string [] memory _addressNames, address [] memory _addresses)  override external returns (bool _added){        
@@ -99,8 +114,9 @@ contract OpenRegister is IOpenRegister, IOpenVersion {
             address a = _addresses[x];
             string memory an = _addressNames[x];
             addressByName[an] = a; 
-           propagateAddressChangeNotification(an, a);
-           _replaced++;          
+            knownAddressStatusByAddress[a] = true;
+            propagateAddressChangeNotification(an, a);
+            _replaced++;          
         }
         return _replaced; 
     }
@@ -115,10 +131,34 @@ contract OpenRegister is IOpenRegister, IOpenVersion {
         return _removed; 
     }
 
+    function registerDerivativeAddress(string memory _dApp, address _address) override external returns (bool _registered) { 
+        doSecurity(msg.sender, "registerDerivativeAddress");
+        if(!knownDerivativeAddressByDApp[_dApp][_address]){
+            registerKnownAddressInternal(_address); 
+            knownDerivativeAddressByAddress[_address] = true;         
+            dAppByDerivativeAddress[_address] = _dApp; 
+            derivativeAddressesByDApp[_dApp].push(_address);
+            knownDerivativeAddressByDApp[_dApp][_address] = true; 
+            return true; 
+        }
+        return false; 
+    }
+
+    function deregisterDerivativeAddress(address _address) override external returns (bool _deregistered) { 
+        doSecurity(msg.sender, "deregisterDerivativeAddress");
+        this.deregisterKnownAddress(_address); 
+        delete knownDerivativeAddressByAddress[_address]; 
+        return true; 
+    }
+
     function registerAddressChangeListener(string [] memory _addressNames, address _addressChangeListenerAddress, string memory _registryPass) override external returns (bool _registered){
-        require(passValidByPass[_registryPass], " registerAddressChangeListener 00 - valid pass only " );
+        require(passValidByPass[_registryPass], " Open Register : registerAddressChangeListener : 00 - valid pass required " );
+        if(!knownAddressStatusByAddress[_addressChangeListenerAddress]){
+            knownAddressStatusByAddress[_addressChangeListenerAddress] = true;
+        }
         for(uint256 x = 0; x < _addressNames.length; x++) {
             string memory addressName_ = _addressNames[x];
+            
             if(!isOnNotificationList[addressName_][_addressChangeListenerAddress]){
                 IAddressChangeListener addressChangeListner = IAddressChangeListener(_addressChangeListenerAddress);            
                 addressChangeListenerList[addressName_].push(addressChangeListner);
@@ -132,7 +172,7 @@ contract OpenRegister is IOpenRegister, IOpenVersion {
     }
 
     function deregisterAddressChangeListener(string [] memory _addressNames, address _addressChangeListenerAddress, string memory _registryPass) override external returns (bool _deregistered){
-        require(passValidByPass[_registryPass], " deregisterAddressChangeListener 00 - valid pass only " );
+        require(passValidByPass[_registryPass], " Open Register : deregisterAddressChangeListener : 00 - valid pass required " );
         for(uint256 x = 0; x < _addressNames.length; x++){
              string memory addressName_ = _addressNames[x];
             if(isOnNotificationList[addressName_][_addressChangeListenerAddress]){            
@@ -146,8 +186,17 @@ contract OpenRegister is IOpenRegister, IOpenVersion {
         passValidByPass[_registryPass] = false; 
         addPassUsageStatistic(_registryPass, block.timestamp, msg.sender, "DEREGISTER");        
         return true; 
+    }        
+
+    function listConfigurations() view external returns (string[] memory _configuredNames, address[] memory _configuredAddresses) { 
+        doSecurity(msg.sender, "listConfigurations");
+        _configuredAddresses = new address[](configuredNames.length);
+        for(uint256 x = 0; x < configuredNames.length; x++){
+            _configuredAddresses[x] = addressByName[configuredNames[x]];
+        }
+        return (configuredNames,_configuredAddresses);
     }
-    
+
     function addPass(string memory _pass) external returns (bool _added) {
         doSecurity(msg.sender, "addPass");
         if(!passValidByPass[_pass]) {
@@ -178,13 +227,15 @@ contract OpenRegister is IOpenRegister, IOpenVersion {
     }
 
     function setRoleManager(address _roleManagerAddress) external returns (bool _set) {
-        doSecurity(msg.sender, "setRoleManager");
+        doSecurity(msg.sender, "setRoleManager");        
         roleManager = IOpenRoles(_roleManagerAddress);
+        knownAddressStatusByAddress[_roleManagerAddress] = true; 
         return true; 
     }
 
     function setRootAdmin(address _newAdminAddress) external returns (bool _set)  { 
         doSecurity(msg.sender, "setRootAdminr");
+        knownAddressStatusByAddress[_newAdminAddress] = true; 
         rootAdmin = _newAdminAddress; 
         return true; 
     }
@@ -210,7 +261,7 @@ contract OpenRegister is IOpenRegister, IOpenVersion {
             //@todo implement IOpenRoles 
         }
         else {
-            require(_user == rootAdmin, " Open Register 00 - admin only");
+            require(_user == rootAdmin, string(" Open Register ").append(_function).append(string(" 00 - admin only")));
         }        
         return true; 
     }
@@ -228,8 +279,6 @@ contract OpenRegister is IOpenRegister, IOpenVersion {
         return _replacementList; 
     }
 
- 
-
     function addPassUsageStatistic(string memory _pass,
          uint256 _dateUsed, 
          address _userAddress,
@@ -242,6 +291,12 @@ contract OpenRegister is IOpenRegister, IOpenVersion {
             usageType : _usageType
         });
         usageStatistics.push(pus);
+        return true; 
+    }
+
+    function registerKnownAddressInternal(address _address) internal returns (bool _registered){
+        doSecurity(msg.sender, "registerKnownAddress");
+        knownAddressStatusByAddress[_address] = true; 
         return true; 
     }
 }
