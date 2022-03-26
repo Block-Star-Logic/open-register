@@ -2,7 +2,7 @@
 
 pragma solidity >=0.8.0 <0.9.0;
 
-import "https://github.com/Block-Star-Logic/open-version/blob/3211dff2ed53298e2777f26d58f54dd96551cfea/blockchain_ethereum/solidity/V1/interfaces/IOpenVersion.sol";
+import "https://github.com/Block-Star-Logic/open-version/blob/7127d35f5f65108c54472991e074f6847580682b/blockchain_ethereum/solidity/V1/interfaces/IOpenVersion.sol";
 
 import "https://github.com/Block-Star-Logic/open-libraries/blob/7c34b2d947acdef28273cd789c2fe830913600d6/blockchain_ethereum/solidity/V1/libraries/LOpenUtilities.sol";
 
@@ -20,8 +20,9 @@ contract OpenRegister is IOpenRegister, IOpenVersion {
 
     using LOpenUtilities for uint256;
     using LOpenUtilities for string; 
+    using LOpenUtilities for string[];
 
-    uint256 version = 8; 
+    uint256 version = 9; 
 
     string name; 
     
@@ -31,6 +32,8 @@ contract OpenRegister is IOpenRegister, IOpenVersion {
     bool openRolesConfigured; 
 
     string [] configuredNames; 
+
+    string [] oustandingPropagationList;
 
     mapping(string=>address) addressByName; 
     mapping(address=>bool) knownAddressStatusByAddress; 
@@ -46,6 +49,8 @@ contract OpenRegister is IOpenRegister, IOpenVersion {
     mapping(address=>string) dAppByDerivativeAddress; 
     mapping(string=>address[]) derivativeAddressesByDApp; 
     mapping(string=>mapping(address=>bool)) knownDerivativeAddressByDApp; 
+
+    mapping(string=>bool) hasBeenPropagated; 
 
     struct PassUsageStatistic { 
          string pass;
@@ -68,6 +73,10 @@ contract OpenRegister is IOpenRegister, IOpenVersion {
 
     function getName() override view external returns (string memory _contractName){
         return name; 
+    }
+
+    function getRoot() view external returns (address _rootAdmin){
+        return rootAdmin; 
     }
 
     function isKnownAddress(address _address) override view external returns (bool _isKnown){
@@ -99,11 +108,12 @@ contract OpenRegister is IOpenRegister, IOpenVersion {
     function addAddresses(string [] memory _addressNames, address [] memory _addresses)  override external returns (bool _added){        
         doSecurity(msg.sender, "addAddresses");
         for(uint256 x = 0; x < _addressNames.length; x++){
-            address a = _addresses[x];
             string memory an = _addressNames[x];
+            address a = _addresses[x];        
             knownAddressStatusByAddress[a] = true; 
             addressByName[an] = a; 
-            propagateAddressChangeNotification(an, a);
+            hasBeenPropagated[an] = false; 
+            oustandingPropagationList.push(an);            
         }
         return true; 
     }
@@ -115,7 +125,8 @@ contract OpenRegister is IOpenRegister, IOpenVersion {
             string memory an = _addressNames[x];
             addressByName[an] = a; 
             knownAddressStatusByAddress[a] = true;
-            propagateAddressChangeNotification(an, a);
+            hasBeenPropagated[an] = false; 
+            oustandingPropagationList.push(an);  
             _replaced++;          
         }
         return _replaced; 
@@ -240,22 +251,28 @@ contract OpenRegister is IOpenRegister, IOpenVersion {
         return true; 
     }
 
-    function propagateAddressChangeNotification(string memory _addressName, address _address) internal returns(bool _recieved) {
+
+    function propagateAddressChangeNotification(string memory _addressName) external returns(bool _recieved) {
 
         IAddressChangeListener [] memory addressChangeListenerList_ = addressChangeListenerList[_addressName];
+        address address_ = addressByName[_addressName];
         uint256 pass = 0; 
         uint256 fail = 0; 
         for(uint256 x = 0; x < addressChangeListenerList_.length; x++ )        {
-            if(addressChangeListenerList_[x].notifyChangeOfAddress(_addressName, _address)){
+            if(addressChangeListenerList_[x].notifyChangeOfAddress(_addressName, address_)){
                 pass++;
             }
             else {
                 fail++;            
             }
         }
+        _addressName.remove(oustandingPropagationList);
+        hasBeenPropagated[_addressName] = true; 
         return true; 
     }
     
+    //==================================== INTERNAL ===================================
+
     function doSecurity(address _user, string memory _function) view internal returns (bool _done) {
         if(openRolesConfigured) {
             //@todo implement IOpenRoles 
