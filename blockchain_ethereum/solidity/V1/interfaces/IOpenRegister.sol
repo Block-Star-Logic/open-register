@@ -1,9 +1,17 @@
 //SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.0 <0.9.0;
+/**
+ * @title
+ * @author
+ * @dev
+ */
 
-interface IOpenRegister  { 
+interface IOpenRegister {
+
 
     function getDapp() view external returns (string memory _dapp);
+
+    function getName(address _address) view external returns (string memory _name); 
 
     function getAddress(string memory _addressName) view external returns (address _address);    
 
@@ -14,6 +22,8 @@ interface IOpenRegister  {
     function getDerivativeAddressType(address _address) view external returns (string memory _type);
 
     function registerAddress(address _address, string memory _nameOrType) external returns (bool _registered);
+    
+    function registerOpenVersionAddress(address _address) external returns (bool _registered); 
 
     function deregisterAddress(address _address) external returns (bool _deregistered);
 
