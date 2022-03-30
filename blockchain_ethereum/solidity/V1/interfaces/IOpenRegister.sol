@@ -21,7 +21,7 @@ interface IOpenRegister {
     
     function getDerivativeAddressType(address _address) view external returns (string memory _type);
 
-    function registerAddress(address _address, string memory _nameOrType) external returns (bool _registered);
+    function registerAddress(address _address, string memory _name, uint256 _version) external returns (bool _registered);
     
     function registerOpenVersionAddress(address _address) external returns (bool _registered); 
 
