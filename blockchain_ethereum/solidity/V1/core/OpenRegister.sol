@@ -5,9 +5,9 @@ pragma solidity >=0.8.0 <0.9.0;
 import "https://github.com/Block-Star-Logic/open-roles/blob/fc410fe170ac2d608ea53e3760c8691e3c5b550e/blockchain_ethereum/solidity/v2/contracts/interfaces/IOpenRolesManaged.sol";
 import "https://github.com/Block-Star-Logic/open-libraries/blob/16a705a5421984ca94dc72fff100cb406ac9aa96/blockchain_ethereum/solidity/V1/libraries/LOpenUtilities.sol";
 
-import "../interfaces/IOpenRegister.sol";
+import "https://github.com/Block-Star-Logic/open-register/blob/03fb07e69bfdfaa6a396a063988034de65bdab3d/blockchain_ethereum/solidity/V1/interfaces/IOpenRegister.sol";
 
-import "../openblock/OpenRolesSecure.sol";
+import "https://github.com/Block-Star-Logic/open-roles/blob/48e921db2f31fe4c9afe954399a45d78237e1e70/blockchain_ethereum/solidity/v2/contracts/core/OpenRolesSecure.sol";
 
 /**
  * @title Open Register
