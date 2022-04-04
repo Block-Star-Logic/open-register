@@ -16,10 +16,12 @@ interface IOpenRegister {
     function getAddress(string memory _addressName) view external returns (address _address);    
 
     function isKnownAddress(address _address) view external returns (bool _isKnown);
-
-    function isDerivativeAddress(address _address) view external returns (bool _isDerivativeAddress);
     
-    function getDerivativeAddressType(address _address) view external returns (string memory _type);
+    function isUserAddress(address _address) view external returns (bool _isDerivativeAddress);
+
+    function getUserAddressUsage(address _address) view external returns (string [] memory _usage);
+
+    function registerUserAddress(address _address, string memory _addressUsagetype) external returns (bool _registered);
 
     function registerAddress(address _address, string memory _name, uint256 _version) external returns (bool _registered);
     
@@ -27,6 +29,10 @@ interface IOpenRegister {
 
     function deregisterAddress(address _address) external returns (bool _deregistered);
 
+    function isDerivativeAddress(address _address) view external returns (bool _isDerivativeAddress);
+    
+    function getDerivativeAddressType(address _address) view external returns (string memory _type);
+    
     function registerDerivativeAddress( address _address, string memory _type) external returns (bool _registered);
 
     function deregisterDerivativeAddress(address _address) external returns (bool _deregistered); 
