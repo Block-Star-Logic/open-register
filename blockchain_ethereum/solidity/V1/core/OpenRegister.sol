@@ -1,38 +1,37 @@
 //SPDX-License-Identifier: Apache-2.0
 
 pragma solidity >=0.8.0 <0.9.0;
- 
-import "https://github.com/Block-Star-Logic/open-roles/blob/fc410fe170ac2d608ea53e3760c8691e3c5b550e/blockchain_ethereum/solidity/v2/contracts/interfaces/IOpenRolesManaged.sol";
-import "https://github.com/Block-Star-Logic/open-libraries/blob/16a705a5421984ca94dc72fff100cb406ac9aa96/blockchain_ethereum/solidity/V1/libraries/LOpenUtilities.sol";
+
+import "https://github.com/Block-Star-Logic/open-version/blob/e161e8a2133fbeae14c45f1c3985c0a60f9a0e54/blockchain_ethereum/solidity/V1/interfaces/IOpenVersion.sol";
+
+import "https://github.com/Block-Star-Logic/open-roles/blob/93764de97d40c04b150f51b92bf2a448f22fbd1f/blockchain_ethereum/solidity/v2/contracts/interfaces/IOpenRolesManaged.sol";
+import "https://github.com/Block-Star-Logic/open-roles/blob/732f4f476d87bece7e53bd0873076771e90da7d5/blockchain_ethereum/solidity/v2/contracts/core/OpenRolesSecureCore.sol";
 
 import "../interfaces/IOpenRegister.sol";
 
-import "https://github.com/Block-Star-Logic/open-roles/blob/48e921db2f31fe4c9afe954399a45d78237e1e70/blockchain_ethereum/solidity/v2/contracts/core/OpenRolesSecure.sol";
 
 /**
  * @title Open Register
  * @author Block Star Logic 
  * @dev The Open Register is responsible for keeping track of all addresses operating in a given dApp estate. 
  */
-contract OpenRegister is OpenRolesSecure, IOpenRegister, IOpenRolesManaged {
+contract OpenRegister is OpenRolesSecureCore, IOpenVersion, IOpenRegister, IOpenRolesManaged {
 
     using LOpenUtilities for address; 
 
-    uint256 version = 15; 
+    uint256 version = 21; 
 
     string name                     = "RESERVED_OPEN_REGISTER_CORE"; 
 
-    string dApp; 
-
     string coreRole                 = "DAPP_CORE_ROLE";
 
-    string derivativeAdminRole      = "DERIVATIVE_ADMIN_ROLE";
+    string derivativeAdminRole      = "DERIVATIVE_CONTRACTS_ADMIN_ROLE";
 
-     string roleManagerCA           = "RESERVED_OPEN_ROLES_CORE";
+    string openAdminRole            = "RESERVED_OPEN_ADMIN_ROLE";
 
-    string [] defaultRoles = [coreRole, derivativeAdminRole];
+    string roleManagerCA            = "RESERVED_OPEN_ROLES_CORE";
 
-    string [] roleNames = [coreRole];
+    string [] defaultRoles          = [coreRole, derivativeAdminRole, openAdminRole];
 
     mapping(string=>bool) hasDefaultFunctionsByRole;
     mapping(string=>string[]) defaultFunctionsByRole;
@@ -58,13 +57,14 @@ contract OpenRegister is OpenRolesSecure, IOpenRegister, IOpenRolesManaged {
     mapping(string=>uint256[]) versionHistoryByName; 
 
 
-    constructor(string memory _dAppName, address _openRolesAddress) { 
-        dApp = _dAppName; 
+    constructor(string memory _dAppName, address _openRolesAddress) OpenRolesSecureCore(_dAppName) { 
         setRoleManager(_openRolesAddress);   
         addConfigurationItem(_openRolesAddress);
         addConfigurationItem(name, self, version);
         initDefaultFunctionsForRoles();    
-        registerInternal(self, name, version);     
+        registerInternal(self, name, version);
+        IOpenVersion ov = IOpenVersion(_openRolesAddress);
+        registerInternal(_openRolesAddress, ov.getName(), ov.getVersion());     
     }
 
     function getVersion() override view external returns (uint256 _version){
@@ -76,7 +76,7 @@ contract OpenRegister is OpenRolesSecure, IOpenRegister, IOpenRolesManaged {
     }
 
     function getDefaultRoles() override view external returns (string [] memory _roleNames){
-        return roleNames; 
+        return defaultRoles; 
     }
 
     function hasDefaultFunctions(string memory _role) override view external returns(bool _hasFunctions){
@@ -88,7 +88,7 @@ contract OpenRegister is OpenRolesSecure, IOpenRegister, IOpenRolesManaged {
     }
 
     function getDapp() override view external returns (string memory _dapp){
-        return dApp; 
+        return dappName; 
     }
 
     function getAddress(string memory _addressName) override view external returns (address _address){
@@ -152,7 +152,7 @@ contract OpenRegister is OpenRolesSecure, IOpenRegister, IOpenRolesManaged {
     }
 
     function registerUserAddress(address _address, string memory _usageType) override external returns (bool _registered){
-        require(isSecure(coreRole, "registerAddress")," dapp core only "); 
+        require(isSecure(coreRole, "registerUserAddress")," dapp core only "); 
         return registerUserAddressInternal(_address, _usageType);
     }
 
@@ -178,21 +178,24 @@ contract OpenRegister is OpenRolesSecure, IOpenRegister, IOpenRolesManaged {
 
     function deregisterDerivativeAddress(address _address) override external returns (bool _deregistered){
         require(isSecure(derivativeAdminRole, "deregisterDerivativeAddress")," derivative contract admin only "); 
-        deregisterInternal(_address);
+        return deregisterInternal(_address);
     }
 
     function clearRegister() external returns (bool _cleared){
-        require(isSecure(coreRole, "clearRegister")," dapp core only "); 
+        require(isSecure(openAdminRole, "clearRegister")," admin only "); 
         for(uint256 x = 0; x < coreAddressList.length; x++) {
             deregisterInternal(coreAddressList[x]);
         }
         return true; 
     }
 
-    function notifyChangeOfAddress() external returns(bool _nofified) {                            
-        address rm = getAddressInternal(roleManagerCA);
-        setRoleManager(rm);
-        addConfigurationItem(rm);
+    function notifyChangeOfAddress() external returns(bool _notified) {   
+        require(isSecure(openAdminRole, "notifyChangeOfAddress"), " admin only ");                         
+        address openRolesAddress_ = getAddressInternal(roleManagerCA);
+        setRoleManager(openRolesAddress_);
+        addConfigurationItem(openRolesAddress_);
+        IOpenVersion ov = IOpenVersion(openRolesAddress_);
+        registerInternal(openRolesAddress_, ov.getName(), ov.getVersion()); 
         return true; 
     }
     
@@ -271,11 +274,17 @@ contract OpenRegister is OpenRolesSecure, IOpenRegister, IOpenRolesManaged {
         hasDefaultFunctionsByRole[coreRole]  = true; 
         defaultFunctionsByRole[coreRole].push("registerAddress");
         defaultFunctionsByRole[coreRole].push("deregisterAddress");
+        defaultFunctionsByRole[coreRole].push("clearRegister");
+        defaultFunctionsByRole[coreRole].push("registerOpenVersionAddress");
+        defaultFunctionsByRole[coreRole].push("registerUserAddress");
 
         hasDefaultFunctionsByRole[derivativeAdminRole] = true; 
         defaultFunctionsByRole[derivativeAdminRole].push("registerDerivativeAddress");
         defaultFunctionsByRole[derivativeAdminRole].push("deregisterDerivativeAddress");
-        
+
+        hasDefaultFunctionsByRole[openAdminRole] = true; 
+        defaultFunctionsByRole[openAdminRole].push("clearRegister");
+        defaultFunctionsByRole[openAdminRole].push("notifyChangeOfAddress");        
     }
 
 }
