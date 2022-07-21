@@ -1,10 +1,12 @@
 //SPDX-License-Identifier: Apache-2.0
 
-pragma solidity >=0.8.0 <0.9.0;
+pragma solidity ^0.8.15;
 
 import "https://github.com/Block-Star-Logic/open-version/blob/e161e8a2133fbeae14c45f1c3985c0a60f9a0e54/blockchain_ethereum/solidity/V1/interfaces/IOpenVersion.sol";
 
 import "https://github.com/Block-Star-Logic/open-roles/blob/93764de97d40c04b150f51b92bf2a448f22fbd1f/blockchain_ethereum/solidity/v2/contracts/interfaces/IOpenRolesManaged.sol";
+
+
 import "https://github.com/Block-Star-Logic/open-roles/blob/732f4f476d87bece7e53bd0873076771e90da7d5/blockchain_ethereum/solidity/v2/contracts/core/OpenRolesSecureCore.sol";
 
 import "../interfaces/IOpenRegister.sol";
@@ -19,7 +21,7 @@ contract OpenRegister is OpenRolesSecureCore, IOpenVersion, IOpenRegister, IOpen
 
     using LOpenUtilities for address; 
 
-    uint256 version = 21; 
+    uint256 version = 22; 
 
     string name                     = "RESERVED_OPEN_REGISTER_CORE"; 
 
